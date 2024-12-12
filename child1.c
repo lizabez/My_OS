@@ -1,30 +1,36 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <windows.h>
 #include <ctype.h>
 
-#define BUFFER_SIZE 1024
-
-int main() {
-    HANDLE hPipe1Read, hPipe2Write;
-    char buffer[BUFFER_SIZE];
-    DWORD bytesRead, bytesWritten;
-
-    // Получение дескрипторов pipe от родительского процесса
-    hPipe1Read = GetStdHandle(STD_INPUT_HANDLE);
-    hPipe2Write = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    while (1) {
-        if (ReadFile(hPipe1Read, buffer, BUFFER_SIZE, &bytesRead, NULL) == FALSE) break;
-
-        // Переводим строку в верхний регистр
-        for (int i = 0; i < bytesRead; i++) {
-            buffer[i] = toupper((unsigned char)buffer[i]);
-        }
-
-        // Отправляем данные в следующий процесс
-        WriteFile(hPipe2Write, buffer, bytesRead, &bytesWritten, NULL);
+void convert_to_uppercase(FILE *input, FILE *output) {
+    char ch;
+    while ((ch = fgetc(input)) != EOF) {
+        fputc(toupper(ch), output);
     }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <input_file> <output_file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    if (input == NULL) {
+        perror("Error opening input file");
+        return 1;
+    }
+
+    FILE *output = fopen(argv[2], "w");
+    if (output == NULL) {
+        perror("Error opening output file");
+        fclose(input);
+        return 1;
+    }
+
+    convert_to_uppercase(input, output);
+
+    fclose(input);
+    fclose(output);
 
     return 0;
 }
