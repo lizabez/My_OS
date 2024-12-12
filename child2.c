@@ -13,21 +13,18 @@ void replace_spaces_with_underscore(FILE *input, FILE *output) {
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <input_file> <output_file>\n", argv[0]);
-        return 1;
+        return 5;
     }
 
     FILE *input = fopen(argv[1], "r");
     if (input == NULL) {
-        perror("Error opening input file");
-        return 1;
+        return 6;
     }
 
     FILE *output = fopen(argv[2], "w");
     if (output == NULL) {
-        perror("Error opening output file");
         fclose(input);
-        return 1;
+        return 7;
     }
 
     replace_spaces_with_underscore(input, output);
