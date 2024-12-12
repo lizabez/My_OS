@@ -6,23 +6,22 @@ void run_child(const char *child_exe, const char *input_file, const char *output
     STARTUPINFO si = {0};
     PROCESS_INFORMATION pi;
     
-    // Конструируем команду для выполнения дочернего процесса
+   
     char command[1024];
     snprintf(command, sizeof(command), "\"%s\" \"%s\" \"%s\"", child_exe, input_file, output_file);
     
-    // Инициализация структуры STARTUPINFO
+
     si.cb = sizeof(si);
     
-    // Создание дочернего процесса
+
     if (!CreateProcess(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         fprintf(stderr, "Error starting process %s\n", child_exe);
         exit(1);
     }
     
-    // Ожидаем завершения дочернего процесса
     WaitForSingleObject(pi.hProcess, INFINITE);
     
-    // Закрытие дескрипторов
+
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 }
