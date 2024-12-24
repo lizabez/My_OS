@@ -2,113 +2,96 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+#include <unistd.h>
 
-#define MAX_THREADS 64  // Максимальное количество потоков
+#define MAX_THREADS 4  
 
-// Структура для хранения данных каждого потока
 typedef struct {
-    int num_throws;        // Количество бросков для каждого игрока
-    int current_round;     // Текущий тур
-    int player1_score;     // Очки первого игрока
-    int player2_score;     // Очки второго игрока
-    int num_experiments;   // Количество экспериментов
-    int thread_id;         // Идентификатор потока
-    int* results;          // Массив для записи результатов (побед игрока 1 или 2)
-} thread_data_t;
+    int K;              
+    int round;           
+    int score1;          
+    int score2;          
+} GameData;
 
-// Функция для генерации случайного броска кости
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 int roll_die() {
-    return rand() % 6 + 1;  // Возвращаем случайное число от 1 до 6
+    return rand() % 6 + 1; 
 }
 
-// Функция, выполняющая один эксперимент игры
-void* run_game(void* arg) {
-    thread_data_t* data = (thread_data_t*) arg;
-    int player1_total_score = data->player1_score;
-    int player2_total_score = data->player2_score;
-    
-    // Моделируем броски костей для каждого игрока
-    for (int i = 0; i < data->num_throws; ++i) {
-        player1_total_score += roll_die() + roll_die();  // Игрок 1 бросает 2 кости
-        player2_total_score += roll_die() + roll_die();  // Игрок 2 бросает 2 кости
-    }
-    
-    // Определяем победителя
-    if (player1_total_score > player2_total_score) {
-        data->results[data->thread_id] = 1;  // Победа игрока 1
-    } else if (player1_total_score < player2_total_score) {
-        data->results[data->thread_id] = 2;  // Победа игрока 2
-    } else {
-        data->results[data->thread_id] = 0;  // Ничья
+void* experiment(void* arg) {
+    GameData* gameData = (GameData*)arg;
+
+    int player1_score = 0, player2_score = 0;
+   
+    for (int i = 0; i < gameData->K; i++) {
+        player1_score += roll_die() + roll_die();
     }
 
-    return NULL;
+    for (int i = 0; i < gameData->K; i++) {
+        player2_score += roll_die() + roll_die();  
+    }
+
+    pthread_mutex_lock(&mutex);
+
+ 
+    gameData->score1 += player1_score;
+    gameData->score2 += player2_score;
+
+    if (player1_score > player2_score) {
+        gameData->round++;
+    }
+
+    pthread_mutex_unlock(&mutex);
+
+    pthread_exit(NULL);
 }
 
-// Главная функция программы
-int main(int argc, char* argv[]) {
-    if (argc != 5) {
-        printf("Usage: %s <num_throws> <current_round> <player1_score> <num_experiments>\n", argv[0]);
-        return 1;
-    }
+int main() {
+    int K, round, score1, score2, max_threads;
 
-    int num_throws = atoi(argv[1]);       // Количество бросков
-    int current_round = atoi(argv[2]);    // Текущий тур
-    int player1_score = atoi(argv[3]);    // Начальные очки игрока 1
-    int num_experiments = atoi(argv[4]);  // Количество экспериментов
-    int num_threads = 4;                  // Количество потоков, можно ограничить через аргумент
+    
+    printf("Enter the number of rolls per player (K): ");
+    scanf("%d", &K);
 
-    // Ограничиваем количество потоков
-    if (num_threads > MAX_THREADS) {
-        num_threads = MAX_THREADS;
-    }
+    printf("Enter the current round number: ");
+    scanf("%d", &round);
 
-    // Массив для хранения результатов каждого потока
-    int* results = (int*) malloc(num_experiments * sizeof(int));
-    pthread_t threads[num_threads];
-    thread_data_t thread_data[num_threads];
+    printf("Enter the initial score for player 1: ");
+    scanf("%d", &score1);
 
-    srand(time(NULL));  // Инициализация генератора случайных чисел
+    printf("Enter the initial score for player 2: ");
+    scanf("%d", &score2);
 
-    // Запуск экспериментов
-    int experiments_per_thread = num_experiments / num_threads;
-    for (int t = 0; t < num_threads; ++t) {
-        thread_data[t].num_throws = num_throws;
-        thread_data[t].current_round = current_round;
-        thread_data[t].player1_score = player1_score;
-        thread_data[t].player2_score = player1_score;  // Используем одинаковое начальное количество очков
-        thread_data[t].num_experiments = experiments_per_thread;
-        thread_data[t].thread_id = t;
-        thread_data[t].results = results;
-        
-        pthread_create(&threads[t], NULL, run_game, (void*) &thread_data[t]);
-    }
+    printf("Enter the maximum number of threads (experiments) to run simultaneously: ");
+    scanf("%d", &max_threads);
 
-    // Ожидание завершения всех потоков
-    for (int t = 0; t < num_threads; ++t) {
-        pthread_join(threads[t], NULL);
-    }
+    srand(time(NULL));
 
-    // Подсчитываем победы
-    int player1_wins = 0, player2_wins = 0, draws = 0;
-    for (int i = 0; i < num_experiments; ++i) {
-        if (results[i] == 1) {
-            player1_wins++;
-        } else if (results[i] == 2) {
-            player2_wins++;
-        } else {
-            draws++;
+    pthread_t threads[max_threads];
+    GameData gameData = {K, round, score1, score2};
+
+    for (int i = 0; i < max_threads; i++) {
+        if (pthread_create(&threads[i], NULL, experiment, (void*)&gameData) != 0) {
+            perror("Error creating thread");
+            return 1;
         }
     }
 
-    // Выводим результаты
-    printf("Results after %d experiments:\n", num_experiments);
-    printf("Player 1 wins: %d\n", player1_wins);
-    printf("Player 2 wins: %d\n", player2_wins);
-    printf("Draws: %d\n", draws);
+  
+    for (int i = 0; i < max_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
 
-    // Освобождаем память
-    free(results);
+    printf("\nTotal score of player 1: %d\n", gameData.score1);
+    printf("Total score of player 2: %d\n", gameData.score2);
+    if (gameData.score1 > gameData.score2) {
+        printf("Player 1 wins!\n");
+    } else if (gameData.score1 < gameData.score2) {
+        printf("Player 2 wins!\n");
+    } else {
+        printf("It's a draw!\n");
+    }
 
     return 0;
 }
