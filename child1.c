@@ -1,33 +1,18 @@
-#include <stdio.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <string.h>
 
-void convert_to_uppercase(FILE *input, FILE *output) {
-    char ch;
-    while ((ch = fgetc(input)) != EOF) {
-        fputc(toupper(ch), output); 
+int main() {
+    char input[1024];
+    ssize_t bytes_read;
+
+    while ((bytes_read = read(STDIN_FILENO, input, sizeof(input))) > 0) {
+        input[bytes_read] = '\0';
+
+        for (int i = 0; i < bytes_read; i++) {
+            input[i] = toupper(input[i]);
+        }
+        write(STDOUT_FILENO, input, bytes_read);
     }
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        return 1;
-    }
-
-    FILE *input = fopen(argv[1], "r");
-    if (input == NULL) {
-        return 2;
-    }
-
-    FILE *output = fopen(argv[2], "w");
-    if (output == NULL) {
-        fclose(input);
-        return 3;
-    }
-
-    convert_to_uppercase(input, output);
-
-    fclose(input);
-    fclose(output);
-
     return 0;
 }
