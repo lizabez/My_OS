@@ -1,36 +1,18 @@
-#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
 
-void replace_spaces_with_underscore(FILE *input, FILE *output) {
-    char ch;
-    while ((ch = fgetc(input)) != EOF) {
-        if (ch == ' ') {
-            fputc('_', output); 
-        } else {
-            fputc(ch, output);
+int main() {
+    char input[1024];
+    ssize_t bytes_read;
+
+    while ((bytes_read = read(STDIN_FILENO, input, sizeof(input))) > 0) {
+        input[bytes_read] = '\0';
+        for (int i = 0; i < bytes_read; i++) {
+            if (input[i] == ' ') {
+                input[i] = '_';
+            }
         }
+        write(STDOUT_FILENO, input, bytes_read);
     }
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        return 5;
-    }
-
-    FILE *input = fopen(argv[1], "r");
-    if (input == NULL) {
-        return 6;
-    }
-
-    FILE *output = fopen(argv[2], "w");
-    if (output == NULL) {
-        fclose(input);
-        return 7;
-    }
-
-    replace_spaces_with_underscore(input, output);
-
-    fclose(input);
-    fclose(output);
-
     return 0;
 }
