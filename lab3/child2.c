@@ -1,15 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <semaphore.h>
 #include <unistd.h>
-#include <ctype.h>
+#include <string.h>
 
 #define SHM_NAME "/shared_memory"
-#define SEM_EMPTY "/sem_empty"
-#define SEM_FULL "/sem_full"
 #define BUFFER_SIZE 256
 
 struct SharedData {
@@ -17,10 +14,14 @@ struct SharedData {
     int flag;
 };
 
-int main() {
-   
-    sem_t *sem_empty = sem_open(SEM_EMPTY, 0);
-    sem_t *sem_full = sem_open(SEM_FULL, 0);
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        write(2, "Usage: child2 <sem_empty> <sem_full>\n", 37);
+        exit(EXIT_FAILURE);
+    }
+
+    sem_t *sem_empty = sem_open(argv[1], 0);
+    sem_t *sem_full = sem_open(argv[2], 0);
 
     if (sem_empty == SEM_FAILED || sem_full == SEM_FAILED) {
         perror("sem_open failed");
@@ -40,19 +41,20 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    sem_wait(sem_empty);
+    sem_wait(sem_full);
 
+    // Заменяем пробелы на нижние подчёркивания
     for (int i = 0; shmaddr->message[i] != '\0'; i++) {
         if (shmaddr->message[i] == ' ') {
             shmaddr->message[i] = '_';
         }
     }
 
-    shmaddr->flag = 2;
-
-    sem_post(sem_full);
+    write(1, "Child 2 processed message: ", 26);
+    write(1, shmaddr->message, strlen(shmaddr->message));
+    write(1, "\n", 1);
 
     munmap(shmaddr, sizeof(struct SharedData));
-
+    close(shm_fd);
     return 0;
 }
