@@ -1,0 +1,17 @@
+#ifndef SHARED_DATA_H
+#define SHARED_DATA_H
+
+#define SHM_NAME "/shared_memory"
+#define SEM_EMPTY "/sem_empty"
+#define SEM_FULL "/sem_full"
+#define BUFFER_SIZE 256
+
+struct SharedData {
+    char message[BUFFER_SIZE];
+    int flag;
+};
+
+extern sem_t *sem_empty;
+extern sem_t *sem_full;
+
+#endif 
