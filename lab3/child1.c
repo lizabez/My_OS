@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
 
     sem_wait(sem_empty);
 
-    // Преобразуем строку в верхний регистр
     for (int i = 0; shmaddr->message[i] != '\0'; i++) {
         shmaddr->message[i] = toupper((unsigned char)shmaddr->message[i]);
     }
