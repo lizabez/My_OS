@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
 
     sem_wait(sem_full);
 
-    // Заменяем пробелы на нижние подчёркивания
     for (int i = 0; shmaddr->message[i] != '\0'; i++) {
         if (shmaddr->message[i] == ' ') {
             shmaddr->message[i] = '_';
