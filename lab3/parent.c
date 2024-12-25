@@ -47,15 +47,14 @@ int main() {
 
     shmaddr->flag = 0;
 
-    // Используем read() вместо scanf для ввода сообщения
-    write(1, "Enter a message: ", 17);  // Выводим приглашение для ввода
-    ssize_t bytes_read = read(0, shmaddr->message, BUFFER_SIZE);  // Читаем ввод
+    write(1, "Enter a message: ", 17); 
+    ssize_t bytes_read = read(0, shmaddr->message, BUFFER_SIZE);
     if (bytes_read == -1) {
         perror("read failed");
         exit(EXIT_FAILURE);
     }
 
-    // Убираем символ новой строки, если он есть
+   
     if (shmaddr->message[bytes_read - 1] == '\n') {
         shmaddr->message[bytes_read - 1] = '\0';
     }
@@ -89,10 +88,9 @@ int main() {
     wait(NULL);
     wait(NULL);
 
-    // Используем write() вместо printf для вывода результата
     write(1, "Final message: ", 15);
     write(1, shmaddr->message, strlen(shmaddr->message));
-    write(1, "\n", 1);  // Печатаем новую строку
+    write(1, "\n", 1); 
 
     sem_close(sem_empty);
     sem_close(sem_full);
