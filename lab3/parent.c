@@ -47,13 +47,18 @@ int main() {
 
     shmaddr->flag = 0;
 
-    printf("Enter a message: ");
-    if (fgets(shmaddr->message, BUFFER_SIZE, stdin) == NULL) {
-        perror("fgets failed");
+    // Используем read() вместо scanf для ввода сообщения
+    write(1, "Enter a message: ", 17);  // Выводим приглашение для ввода
+    ssize_t bytes_read = read(0, shmaddr->message, BUFFER_SIZE);  // Читаем ввод
+    if (bytes_read == -1) {
+        perror("read failed");
         exit(EXIT_FAILURE);
     }
 
-    shmaddr->message[strcspn(shmaddr->message, "\n")] = '\0';
+    // Убираем символ новой строки, если он есть
+    if (shmaddr->message[bytes_read - 1] == '\n') {
+        shmaddr->message[bytes_read - 1] = '\0';
+    }
 
     pid_t child1 = fork();
     if (child1 == -1) {
@@ -62,7 +67,7 @@ int main() {
     }
 
     if (child1 == 0) {
-        execl("./child1", "child1", (char *)NULL);
+        execl("./child1", "child1", SEM_EMPTY, SEM_FULL, NULL);
         perror("execl failed");
         exit(EXIT_FAILURE);
     }
@@ -74,7 +79,7 @@ int main() {
     }
 
     if (child2 == 0) {
-        execl("./child2", "child2", (char *)NULL);
+        execl("./child2", "child2", SEM_EMPTY, SEM_FULL, NULL);
         perror("execl failed");
         exit(EXIT_FAILURE);
     }
@@ -84,7 +89,10 @@ int main() {
     wait(NULL);
     wait(NULL);
 
-    printf("Final message: %s\n", shmaddr->message);
+    // Используем write() вместо printf для вывода результата
+    write(1, "Final message: ", 15);
+    write(1, shmaddr->message, strlen(shmaddr->message));
+    write(1, "\n", 1);  // Печатаем новую строку
 
     sem_close(sem_empty);
     sem_close(sem_full);
@@ -96,4 +104,3 @@ int main() {
 
     return 0;
 }
-
