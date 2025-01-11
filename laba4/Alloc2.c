@@ -1,90 +1,123 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <sys/time.h>
+
+#define MAX_CLASSES 5 
+#define MIN_BLOCK_SIZE 16 
 
 typedef struct Block {
-    size_t size;
-    bool is_free;
-    struct Block *buddy;
+    struct Block *next;
 } Block;
 
 typedef struct Allocator {
     void *memory;
     size_t size;
-    void* (*alloc)(struct Allocator *allocator, size_t size);
-    void (*free)(struct Allocator *allocator, void *ptr);
-    void (*destroy)(struct Allocator *allocator);
+    Block *free_lists[MAX_CLASSES];
     size_t allocated_memory;
     size_t freed_memory;
 } Allocator;
 
-Allocator* allocator_create(void *memory, size_t size);
-void* allocator_alloc(Allocator *allocator, size_t size);
-void allocator_free(Allocator *allocator, void *ptr);
-void allocator_destroy(Allocator *allocator);
-double get_time();
+
+
 
 Allocator* allocator_create(void *memory, size_t size) {
-    Block *block = (Block*)memory;
-    block->size = size;
-    block->is_free = true;
-    block->buddy = NULL;
+    Allocator *allocator = (Allocator *)memory;
+    size_t remaining_size = size - sizeof(Allocator);
 
-    Allocator *allocator = malloc(sizeof(Allocator));
-    allocator->memory = memory;
-    allocator->size = size;
+    allocator->memory = (void *)((char *)memory + sizeof(Allocator));
+    allocator->size = remaining_size;
     allocator->allocated_memory = 0;
     allocator->freed_memory = 0;
-    allocator->alloc = allocator_alloc;
-    allocator->free = allocator_free;
-    allocator->destroy = allocator_destroy;
 
+    for (int i = 0; i < MAX_CLASSES; i++) {
+        allocator->free_lists[i] = NULL;
+    }
+
+    printf("Allocator created with size: %zu bytes\n", remaining_size);
     return allocator;
 }
 
-void* allocator_alloc(Allocator *allocator, size_t size) {
-    Block *block = (Block*)allocator->memory;
-    while (block && block->size < size) {
-        block = block->buddy;
+size_t get_class_index(size_t size) {
+    size = (size + MIN_BLOCK_SIZE - 1) & ~(MIN_BLOCK_SIZE - 1);
+    size_t index = 0;
+    while ((1 << (index + 4)) < size && index < MAX_CLASSES - 1) {
+        index++;
     }
-    if (block && block->is_free) {
-        block->is_free = false;
-        allocator->allocated_memory += size;
-        return (void*)block;
+    return index;
+}
+
+void* allocator_malloc(Allocator *allocator, size_t size) {
+    if (size == 0) {
+        printf("Error: Cannot allocate 0 bytes.\n");
+        return NULL;
     }
-    return NULL;
+
+    size_t class_index = get_class_index(size);
+    size_t block_size = (1 << (class_index + 4));
+
+    if (!allocator->free_lists[class_index]) {
+        printf("No free blocks in class %zu. Allocating new memory chunk.\n", class_index);
+
+        size_t num_blocks = allocator->size / block_size;
+        char *base = (char *)allocator->memory;
+        for (size_t i = 0; i < num_blocks; i++) {
+            Block *new_block = (Block *)(base + i * block_size);
+            new_block->next = allocator->free_lists[class_index];
+            allocator->free_lists[class_index] = new_block;
+        }
+    }
+
+    Block *block = allocator->free_lists[class_index];
+    if (!block) {
+        printf("Error: Not enough memory to allocate %zu bytes.\n", size);
+        return NULL;
+    }
+
+    allocator->free_lists[class_index] = block->next;
+    allocator->allocated_memory += block_size;
+
+    printf("Allocated block of size: %zu bytes from class %zu\n", block_size, class_index);
+    return (void *)block;
 }
 
 void allocator_free(Allocator *allocator, void *ptr) {
-    Block *block = (Block*)ptr;
-    allocator->freed_memory += block->size;
-    block->is_free = true;
+    if (!ptr) {
+        printf("Error: Attempt to free a null pointer.\n");
+        return;
+    }
+
+    Block *block = (Block *)ptr;
+    size_t offset = (char *)ptr - (char *)allocator->memory;
+    size_t class_index = 0;
+    while (offset >= (1 << (class_index + 4)) && class_index < MAX_CLASSES - 1) {
+        class_index++;
+    }
+
+    block->next = allocator->free_lists[class_index];
+    allocator->free_lists[class_index] = block;
+
+    size_t block_size = (1 << (class_index + 4));
+    allocator->freed_memory += block_size;
+    printf("Freed block of size: %zu bytes from class %zu\n", block_size, class_index);
 }
 
 void allocator_destroy(Allocator *allocator) {
-    free(allocator);
+    printf("Allocator destroyed.\n");
 }
 
-double get_time() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
-}
+int main() {
+    char memory_pool[1024];
+    Allocator *allocator = allocator_create(memory_pool, sizeof(memory_pool));
 
-__attribute__((visibility("default"))) Allocator* create_allocator(void *memory, size_t size) {
-    return allocator_create(memory, size);
-}
+    void *block1 = allocator_malloc(allocator, 32);
+    void *block2 = allocator_malloc(allocator, 64);
+    void *block3 = allocator_malloc(allocator, 128);
 
-__attribute__((visibility("default"))) void destroy_allocator(Allocator *allocator) {
+    allocator_free(allocator, block1);
+    allocator_free(allocator, block2);
+    allocator_free(allocator, block3);
+
     allocator_destroy(allocator);
-}
 
-__attribute__((visibility("default"))) void* alloc_memory(Allocator *allocator, size_t size) {
-    return allocator_alloc(allocator, size);
-}
-
-__attribute__((visibility("default"))) void free_memory(Allocator *allocator, void *ptr) {
-    allocator_free(allocator, ptr);
+    return 0;
 }
